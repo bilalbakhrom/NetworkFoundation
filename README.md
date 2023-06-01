@@ -14,10 +14,10 @@ Use the asURLRequest() method to obtain a URLRequest object for your network req
 Make the request using URLSession or any other networking library of your choice.
 For detailed examples and usage instructions, refer to the Documentation.
 
-# Requirements
+## Requirements
 
-Swift 5.0+
-iOS 13.0+
+* Swift 5.0+
+* iOS 13.0+
 
 ## Contributing
 
