@@ -7,7 +7,7 @@
 
 import Foundation
 
-public class RouterService<R: RouterProtocol>: ServiceProtocol {
+open class RouterService<R: RouterProtocol>: ServiceProtocol {
     public typealias Router = R
     public let session: URLSession
     
