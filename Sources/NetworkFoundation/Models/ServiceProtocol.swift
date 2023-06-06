@@ -32,8 +32,18 @@ extension ServiceProtocol {
     /// - Returns: A value of the specified type, representing the decoded response.
     /// - Throws: An error if the request or decoding fails.
     private func sendRequest<T: Decodable>(_ type: T.Type, request: URLRequest) async throws -> T {
+        // Fetch data.
         let (data, response) = try await fetchData(for: request)
+        
+        // Log network details.
+        if NFSettings.current.showsDebugOnConsole {
+            NFLog.log(request: request, response: response, data: data)
+        }
+        
+        // Validate response.
         let checkedData = try validateData(data, withResponse: response)
+        
+        // Decode response.
         let decodedData = try decodeData(checkedData, as: T.self)
         
         return decodedData
