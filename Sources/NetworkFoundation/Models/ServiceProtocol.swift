@@ -25,6 +25,18 @@ extension ServiceProtocol {
         return try await sendRequest(T.self, request: request)
     }
     
+    /// Sends a network request and decodes the response into the specified type.
+    /// - Parameters:
+    ///   - type: The type to decode the response into.
+    ///   - errorType: The error type to decode the response into.
+    ///   - router: The router defining the request details.
+    /// - Returns: A value of the specified type, representing the decoded response.
+    /// - Throws: An error if the request or decoding fails.
+    public func request<T: Decodable, E: Decodable>(_ type: T.Type, errorType: E.Type, from router: Router) async throws -> T {
+        let request = try router.asURLRequest()
+        return try await sendRequest(T.self, request: request)
+    }
+    
     /// Sends the actual network request and handles the response.
     /// - Parameters:
     ///   - type: The type to decode the response into.
@@ -47,6 +59,37 @@ extension ServiceProtocol {
         let decodedData = try decodeData(checkedData, as: T.self)
         
         return decodedData
+    }
+    
+    /// Sends the actual network request and handles the response.
+    /// - Parameters:
+    ///   - type: The type to decode the response into.
+    ///   - errorType: The error type to decode the response into.
+    ///   - request: The request to send.
+    /// - Returns: A value of the specified type, representing the decoded response.
+    /// - Throws: An error if the request or decoding fails.
+    private func sendRequest<T: Decodable, E: Decodable>(_ type: T.Type, errorType: E.Type, request: URLRequest) async throws -> T {
+        // Fetch data.
+        let (data, response) = try await fetchData(for: request)
+        
+        // Log network details.
+        if NFSettings.current.showsDebugOnConsole {
+            NFLog.log(request: request, response: response, data: data)
+        }
+                
+        do {
+            // Validate response.
+            let checkedData = try validateData(data, withResponse: response)
+            
+            // Decode response.
+            let decodedData = try decodeData(checkedData, as: T.self)
+            
+            return decodedData
+        } catch {
+            let errorData = try decodeData(data, as: E.self)
+            
+            throw NFError.decodedError(model: errorData)
+        }
     }
     
     /// Fetches the data for the given request asynchronously.

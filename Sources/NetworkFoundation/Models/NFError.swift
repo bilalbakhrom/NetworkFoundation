@@ -13,6 +13,7 @@ public enum NFError: Error {
     case networkError(description: String)
     case decodingError(description: String)
     case failure(description: String)
+    case decodedError(model: Any)
     case missingURL
 }
 
@@ -29,6 +30,8 @@ extension NFError: LocalizedError {
             return description
         case .decodingError(let description):
             return "Decoding failure: \(description)"
+        case .decodedError(let model):
+            return "Did decode error: \(model)"
         case .missingURL:
             return "Missing URL"
         }
