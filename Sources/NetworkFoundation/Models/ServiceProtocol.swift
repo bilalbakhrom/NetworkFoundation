@@ -34,7 +34,7 @@ extension ServiceProtocol {
     /// - Throws: An error if the request or decoding fails.
     public func request<T: Decodable, E: Decodable>(_ type: T.Type, errorType: E.Type, from router: Router) async throws -> T {
         let request = try router.asURLRequest()
-        return try await sendRequest(T.self, request: request)
+        return try await sendRequest(T.self, errorType: errorType, request: request)
     }
     
     /// Sends the actual network request and handles the response.
