@@ -13,6 +13,8 @@ final public class NFSettings {
     public var showsDebugOnConsole: Bool = true
     
     public var timeoutInterval: TimeInterval = 30
+    
+    public var encoderType: EncoderType = .default
         
     public init() {}
 }
