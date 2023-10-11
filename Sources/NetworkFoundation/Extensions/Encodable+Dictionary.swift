@@ -11,7 +11,9 @@ extension Encodable {
     public subscript(key: String) -> Any? {
         return dictionary[key]
     }
-    
+}
+
+extension Encodable {
     public var dictionary: [String: Any] {
         let encoder = JSONEncoder()
         
@@ -23,5 +25,19 @@ extension Encodable {
         } catch {
             return [:]
         }
+    }
+}
+
+
+extension Encodable {
+    public var dictionaryUsingMirror: [String: Any] {
+        var dict = [String: Any]()
+        let mirror = Mirror(reflecting: self)
+        
+        for case let (label?, value) in mirror.children {
+            dict[label] = value
+        }
+        
+        return dict
     }
 }
