@@ -20,9 +20,9 @@ final public class NFSettings {
     
     public var httpBodyEncoderType: HTTPBodyEncoderType = .default
 
-    public let arrayEncoding: URLEncoder.ArrayEncoding = .brackets
+    public var arrayEncoding: URLEncoder.ArrayEncoding = .brackets
 
-    public let boolEncoding: URLEncoder.BoolEncoding = .numeric
+    public var boolEncoding: URLEncoder.BoolEncoding = .numeric
     
     // MARK: - INITIALIZATION
         
