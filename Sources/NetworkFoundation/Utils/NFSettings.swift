@@ -12,9 +12,19 @@ final public class NFSettings {
     
     public var showsDebugOnConsole: Bool = true
     
+    // MARK: - REQUEST CONFIGURATION
+    
     public var timeoutInterval: TimeInterval = 30
     
-    public var encoderType: EncoderType = .default
+    // MARK: - ENCODING CONFIGURATION
+    
+    public var httpBodyEncoderType: HTTPBodyEncoderType = .default
+
+    public let arrayEncoding: URLEncoder.ArrayEncoding = .brackets
+
+    public let boolEncoding: URLEncoder.BoolEncoding = .numeric
+    
+    // MARK: - INITIALIZATION
         
-    public init() {}
+    private init() {}
 }

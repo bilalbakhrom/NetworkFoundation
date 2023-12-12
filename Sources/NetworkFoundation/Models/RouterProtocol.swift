@@ -19,6 +19,8 @@ public protocol RouterProtocol: URLRequestConvertible {
     var bodyParameters: Parameters? { get }
     /// The parameters to be included in the request's URL query string.
     var queryParameters: Parameters? { get }
+    
+    func asURLRequest() throws -> URLRequest
 }
 
 extension RouterProtocol {
@@ -47,60 +49,82 @@ extension RouterProtocol {
         let url = try urlComponentsFactory.createURL(from: components, byAppendingPathComponent: path)
         
         // Create the URLRequest
-        let urlRequest = createURLRequest(
+        let urlRequest = try createURLRequest(
             from: url,
             headers: headers,
             method: method,
             parameters: bodyParameters,
-            encoderType: NFSettings.current.encoderType,
-            timeoutInterval: NFSettings.current.timeoutInterval
+            settings: NFSettings.current
         )
         
         return urlRequest
     }
 
-    /**
-        Creates a URLRequest with the provided URL, headers, HTTP method, and optional parameters.
-        
-        - Parameters:
-            - url: The URL for the URLRequest.
-            - headers: The HTTP headers for the URLRequest.
-            - method: The HTTP method for the URLRequest.
-            - parameters: The optional parameters to include in the URLRequest's body.
-            - encoderType: The type of encoder to use for encoding the parameters.
-            - timeoutInterval: The timeout interval for the URLRequest.
-        
-        - Returns: The URLRequest object created based on the provided parameters.
-    */
+    /// Creates a URLRequest with the specified details, including URL, headers, HTTP method, and optional parameters.
+    ///
+    /// - Parameters:
+    ///   - url: The URL for the URLRequest.
+    ///   - headers: The headers to be included in the URLRequest.
+    ///   - method: The HTTP method for the URLRequest.
+    ///   - parameters: Optional parameters to be included in the URLRequest's body.
+    ///   - settings: The network settings used for the URLRequest, including timeout interval and encoder type.
+    /// - Returns: A URLRequest configured with the provided details.
+    /// - Throws: An error if there's an issue in the parameter encoding process.
     private func createURLRequest(
         from url: URL,
         headers: HTTPHeaders,
         method: HTTPMethod,
         parameters: Parameters?,
-        encoderType: EncoderType,
-        timeoutInterval: TimeInterval
-    ) -> URLRequest {
+        settings: NFSettings
+    ) throws -> URLRequest {
+        // Initialize a URLRequest with the given URL
         var urlRequest = URLRequest(url: url)
+        
+        // Set HTTP method, headers, and timeout interval based on the provided parameters and settings
         urlRequest.method = method
         urlRequest.headers = headers
-        urlRequest.timeoutInterval = timeoutInterval
+        urlRequest.timeoutInterval = settings.timeoutInterval
         
-        if let parameters {
-            do {
-                switch encoderType {
-                case .default:
-                    // Use URLEncoder to encode parameters in the HTTP body
-                    let encoder = URLEncoder(destination: .httpBody)
-                    urlRequest = try encoder.encode(urlRequest, with: parameters)
-                case .json:
-                    // Encode parameters in JSON format
-                    urlRequest.httpBody = try JSONSerialization.data(withJSONObject: parameters)
-                }
-            } catch {
-                print("Couldn't encode HTTP body: \(parameters)")
-            }
+        // If parameters are provided, encode them into the URLRequest's body
+        if let parameters = parameters {
+            try encodeParameters(
+                parameters,
+                with: settings.httpBodyEncoderType,
+                for: &urlRequest,
+                settings: settings
+            )
         }
         
         return urlRequest
+    }
+
+    /// Encodes the given parameters into the specified URLRequest based on the provided encoder type and settings.
+    ///
+    /// - Parameters:
+    ///   - parameters: The parameters to be encoded.
+    ///   - encoderType: The type of encoder to be used for parameter encoding.
+    ///   - urlRequest: The URLRequest to which the encoded parameters will be applied.
+    ///   - settings: The network settings used for encoding parameters, such as array and boolean encoding.
+    /// - Throws: An error if the encoding process fails.
+    private func encodeParameters(
+        _ parameters: Parameters,
+        with encoderType: HTTPBodyEncoderType,
+        for urlRequest: inout URLRequest,
+        settings: NFSettings
+    ) throws {
+        switch encoderType {
+        case .default:
+            // Use URLEncoder to encode parameters in the HTTP body
+            let encoder = URLEncoder(
+                destination: .httpBody,
+                arrayEncoding: settings.arrayEncoding,
+                boolEncoding: settings.boolEncoding
+            )
+            urlRequest = try encoder.encode(urlRequest, with: parameters)
+            
+        case .json:
+            // Encode parameters in JSON format
+            urlRequest.httpBody = try JSONSerialization.data(withJSONObject: parameters)
+        }
     }
 }
