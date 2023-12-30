@@ -56,6 +56,7 @@ extension ServiceProtocol {
         return try await sendRequest(T.self, errorType: errorType, request: request)
     }
     
+    
     /// Sends a URLRequest asynchronously and returns the received data.
     ///
     /// - Parameters:
@@ -128,6 +129,111 @@ extension ServiceProtocol {
         } catch {
             let errorData = try decodeData(data, as: E.self)
             
+            throw NFError.decodedError(model: errorData)
+        }
+    }
+}
+
+// MARK: - UPLOAD CONTROL
+
+extension ServiceProtocol {
+    /// Uploads data asynchronously and decodes the response into the specified type.
+    ///
+    /// This method sends an asynchronous upload request using the provided data and router.
+    /// It decodes the response data into the specified type using the `sendUpload` method.
+    ///
+    /// - Parameters:
+    ///   - data: The data to be uploaded.
+    ///   - type: The type into which the response data should be decoded.
+    ///   - router: The router that defines the details of the network upload request.
+    /// - Returns: The decoded response data of the specified type.
+    /// - Throws: An error if there is any issue during the network upload request or data decoding.
+    @discardableResult
+    public func requestUpload<T: Decodable>(data: Data, type: T.Type, from router: Router) async throws -> T {
+        let request = try router.asURLRequest()
+        return try await sendUpload(data: data, type: type, request: request)
+    }
+    
+    /// Uploads data asynchronously and decodes the response into the specified type,
+    /// with the ability to handle a separate error type.
+    ///
+    /// This method sends an asynchronous upload request using the provided data and router.
+    /// It decodes the response data into the specified type and handles a separate error type
+    /// using the `sendUpload` method.
+    ///
+    /// - Parameters:
+    ///   - data: The data to be uploaded.
+    ///   - type: The type into which the response data should be decoded.
+    ///   - errorType: The type into which the error response data should be decoded.
+    ///   - router: The router that defines the details of the network upload request.
+    /// - Returns: The decoded response data of the specified type.
+    /// - Throws: An error if there is any issue during the network upload request or data decoding.
+    @discardableResult
+    public func requestUpload<T: Decodable, E: Decodable>(data: Data, _ type: T.Type, errorType: E.Type, from router: Router) async throws -> T {
+        let request = try router.asURLRequest()
+        return try await sendUpload(data: data, type, errorType: errorType, request: request)
+    }
+    
+    /// Sends an asynchronous upload request and handles the response data decoding.
+    ///
+    /// This method sends an asynchronous upload request using the provided data and request.
+    /// It logs network details and validates the response before decoding the data into the specified type.
+    ///
+    /// - Parameters:
+    ///   - data: The data to be uploaded.
+    ///   - type: The type into which the response data should be decoded.
+    ///   - request: The URLRequest for the upload request.
+    /// - Returns: The decoded response data of the specified type.
+    /// - Throws: An error if there is any issue during the network upload request, data validation, or decoding.
+    private func sendUpload<T: Decodable>(data: Data, type: T.Type, request: URLRequest) async throws -> T {
+        let (data, response) = try await session.upload(for: request, from: data)
+
+        // Log network details.
+        if NFSettings.current.showsDebugOnConsole {
+            NFLog.log(request: request, response: response, data: data)
+        }
+        
+        // Validate response.
+        let checkedData = try validateData(data, withResponse: response)
+        
+        // Decode response.
+        let decodedData = try decodeData(checkedData, as: T.self)
+        
+        return decodedData
+    }
+    
+    /// Sends an asynchronous upload request and handles both success and error response data decoding.
+    ///
+    /// This method sends an asynchronous upload request using the provided data and request.
+    /// It logs network details, validates the response, and decodes the data into the specified type.
+    /// If an error occurs during decoding, it attempts to decode the data into a separate error type.
+    ///
+    /// - Parameters:
+    ///   - data: The data to be uploaded.
+    ///   - type: The type into which the success response data should be decoded.
+    ///   - errorType: The type into which the error response data should be decoded.
+    ///   - request: The URLRequest for the upload request.
+    /// - Returns: The decoded response data of the specified type.
+    /// - Throws: An error if there is any issue during the network upload request, data validation, or decoding.
+    private func sendUpload<T: Decodable, E: Decodable>(data: Data, _ type: T.Type, errorType: E.Type, request: URLRequest) async throws -> T {
+        let (data, response) = try await session.upload(for: request, from: data)
+        
+        // Log network details.
+        if NFSettings.current.showsDebugOnConsole {
+            NFLog.log(request: request, response: response, data: data)
+        }
+                
+        do {
+            // Validate response.
+            let checkedData = try validateData(data, withResponse: response)
+            
+            // Decode response.
+            let decodedData = try decodeData(checkedData, as: T.self)
+            
+            return decodedData
+        } catch {
+            // If decoding into the specified type fails, attempt to decode into the error type.
+            let errorData = try decodeData(data, as: E.self)
             throw NFError.decodedError(model: errorData)
         }
     }
