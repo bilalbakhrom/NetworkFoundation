@@ -13,7 +13,26 @@ public protocol ServiceProtocol {
     var session: URLSession { get }
 }
 
+// MARK: - REQUEST CONTROL
+
 extension ServiceProtocol {
+    /// Sends an asynchronous network request using a provided router and returns the received data.
+    ///
+    /// This function prepares a URLRequest using the provided router and then utilizes the `sendRequest` function
+    /// to handle the asynchronous request execution and data retrieval. It is designed to simplify the process
+    /// of making network requests and fetching data.
+    ///
+    /// - Parameter router: The router that defines the details of the network request.
+    /// - Returns: The data received from the network request.
+    /// - Throws: An error if there is any issue during the network request or data retrieval.
+    public func requestData(from router: Router) async throws -> Data {
+        // Convert the router into a URLRequest.
+        let request = try router.asURLRequest()
+        
+        // Use the sendRequest function to handle the asynchronous request and data retrieval.
+        return try await sendRequest(request: request)
+    }
+    
     /// Sends a network request and decodes the response into the specified type.
     /// - Parameters:
     ///   - type: The type to decode the response into.
@@ -35,6 +54,27 @@ extension ServiceProtocol {
     public func request<T: Decodable, E: Decodable>(_ type: T.Type, errorType: E.Type, from router: Router) async throws -> T {
         let request = try router.asURLRequest()
         return try await sendRequest(T.self, errorType: errorType, request: request)
+    }
+    
+    /// Sends a URLRequest asynchronously and returns the received data.
+    ///
+    /// - Parameters:
+    ///   - request: The URLRequest to be sent.
+    /// - Returns: The data received from the request.
+    /// - Throws: An error if there is any issue during the network request or data validation.
+    private func sendRequest(request: URLRequest) async throws -> Data {
+        // Fetch data.
+        let (data, response) = try await fetchData(for: request)
+        
+        // Log network details.
+        if NFSettings.current.showsDebugOnConsole {
+            NFLog.log(request: request, response: response, data: data)
+        }
+        
+        // Validate the received data with the associated response.
+        let validatedData = try validateData(data, withResponse: response)
+        
+        return validatedData
     }
     
     /// Sends the actual network request and handles the response.
@@ -91,7 +131,11 @@ extension ServiceProtocol {
             throw NFError.decodedError(model: errorData)
         }
     }
-    
+}
+
+// MARK: - SUPPORT
+
+extension ServiceProtocol {
     /// Fetches the data for the given request asynchronously.
     /// - Parameter request: The request to fetch data for.
     /// - Returns: A tuple containing the fetched data and the URL response.

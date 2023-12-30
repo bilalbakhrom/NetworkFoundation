@@ -23,6 +23,8 @@ public protocol RouterProtocol: URLRequestConvertible {
     func asURLRequest() throws -> URLRequest
 }
 
+// MARK: - OPTIONAL PROPERTIES
+
 extension RouterProtocol {
     /// The default implementation of the `headers` property, returning `nil`.
     public var headers: HTTPHeaders { return [:] }
@@ -32,8 +34,11 @@ extension RouterProtocol {
     
     /// The default implementation of the `queryParameters` property, returning `nil`.
     public var queryParameters: Parameters? { return nil }
-    
-    
+}
+
+// MARK: - OPTIONAL METHODS
+
+extension RouterProtocol {
     /// Default implementation of `asURLRequest` method.
     ///
     /// This method creates a `URLRequest` object based on the router's properties. It utilizes the provided `URLComponentsFactory` to construct the URL and handle query parameters.
