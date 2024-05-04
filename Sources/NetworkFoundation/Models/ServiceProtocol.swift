@@ -22,7 +22,7 @@ public protocol ServiceProtocol {
     /// - Parameter router: The router that defines the details of the network request.
     /// - Returns: The data received from the network request.
     /// - Throws: An error if there is any issue during the network request or data retrieval.
-    func requestData(from router: Router) async throws -> Data
+    @discardableResult func requestData(from router: Router) async throws -> Data
     
     /// Sends a network request and decodes the response into the specified type.
     ///

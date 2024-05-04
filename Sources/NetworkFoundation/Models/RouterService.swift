@@ -1,6 +1,6 @@
 //
 //  RouterService.swift
-//  
+//
 //
 //  Created by Bilal Bakhrom on 2023-05-29.
 //
@@ -14,9 +14,10 @@ open class RouterService<R: RouterProtocol>: ServiceProtocol {
     public init(session: URLSession = URLSession.shared) {
         self.session = session
     }
-
+    
     // MARK: - REQUEST CONTROL
     
+    @discardableResult
     public func requestData(from router: Router) async throws -> Data {
         // Convert the router into a URLRequest.
         let request = try router.asURLRequest()
@@ -24,7 +25,7 @@ open class RouterService<R: RouterProtocol>: ServiceProtocol {
         // Use the sendRequest function to handle the asynchronous request and data retrieval.
         return try await sendRequest(request: request)
     }
-
+    
     public func request<T: Decodable>(_ type: T.Type, from router: Router) async throws -> T {
         // Convert the router into a URLRequest.
         let request = try router.asURLRequest()
@@ -56,14 +57,11 @@ open class RouterService<R: RouterProtocol>: ServiceProtocol {
         let (data, response) = try await fetchData(for: request)
         
         // Log network details.
-        if NFSettings.current.showsDebugOnConsole {
+        if NFSettings.shared.isDebugModeEnabled {
             NFLog.log(request: request, response: response, data: data)
         }
         
-        // Validate the received data with the associated response.
-        let validatedData = try validateData(data, withResponse: response)
-        
-        return validatedData
+        return try validateResponseData(data, response: response)
     }
     
     /// Sends the actual network request and handles the response.
@@ -80,15 +78,15 @@ open class RouterService<R: RouterProtocol>: ServiceProtocol {
         let (data, response) = try await fetchData(for: request)
         
         // Log network details.
-        if NFSettings.current.showsDebugOnConsole {
+        if NFSettings.shared.isDebugModeEnabled {
             NFLog.log(request: request, response: response, data: data)
         }
         
         // Validate response.
-        let checkedData = try validateData(data, withResponse: response)
+        let checkedData = try validateResponseData(data, response: response)
         
         // Decode response.
-        let decodedData = try decodeData(checkedData, as: T.self)
+        let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
         
         return decodedData
     }
@@ -108,22 +106,20 @@ open class RouterService<R: RouterProtocol>: ServiceProtocol {
         let (data, response) = try await fetchData(for: request)
         
         // Log network details.
-        if NFSettings.current.showsDebugOnConsole {
+        if NFSettings.shared.isDebugModeEnabled {
             NFLog.log(request: request, response: response, data: data)
         }
-                
+        
         do {
             // Validate response.
-            let checkedData = try validateData(data, withResponse: response)
+            let checkedData = try validateResponseData(data, response: response, errorType: errorType)
             
             // Decode response.
-            let decodedData = try decodeData(checkedData, as: T.self)
+            let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
             
             return decodedData
         } catch {
-            let errorData = try decodeData(data, as: E.self)
-            
-            throw NFError.clientError(model: errorData)
+            throw proceseThrowableClientError(data: data, errorType: type)
         }
     }
 }
@@ -140,7 +136,9 @@ extension RouterService {
     ///   - data: The data to be uploaded.
     ///   - type: The type into which the response data should be decoded.
     ///   - router: The router that defines the details of the network upload request.
+    ///
     /// - Returns: The decoded response data of the specified type.
+    ///
     /// - Throws: An error if there is any issue during the network upload request or data decoding.
     @discardableResult
     public func requestUpload<T: Decodable>(data: Data, type: T.Type, from router: Router) async throws -> T {
@@ -160,7 +158,9 @@ extension RouterService {
     ///   - type: The type into which the response data should be decoded.
     ///   - errorType: The type into which the error response data should be decoded.
     ///   - router: The router that defines the details of the network upload request.
+    ///
     /// - Returns: The decoded response data of the specified type.
+    ///
     /// - Throws: An error if there is any issue during the network upload request or data decoding.
     @discardableResult
     public func requestUpload<T: Decodable, E: Decodable>(data: Data, _ type: T.Type, errorType: E.Type, from router: Router) async throws -> T {
@@ -177,21 +177,23 @@ extension RouterService {
     ///   - data: The data to be uploaded.
     ///   - type: The type into which the response data should be decoded.
     ///   - request: The URLRequest for the upload request.
+    ///
     /// - Returns: The decoded response data of the specified type.
+    ///
     /// - Throws: An error if there is any issue during the network upload request, data validation, or decoding.
     private func sendUpload<T: Decodable>(data: Data, type: T.Type, request: URLRequest) async throws -> T {
         let (data, response) = try await session.upload(for: request, from: data)
-
+        
         // Log network details.
-        if NFSettings.current.showsDebugOnConsole {
+        if NFSettings.shared.isDebugModeEnabled {
             NFLog.log(request: request, response: response, data: data)
         }
         
         // Validate response.
-        let checkedData = try validateData(data, withResponse: response)
+        let checkedData = try validateResponseData(data, response: response)
         
         // Decode response.
-        let decodedData = try decodeData(checkedData, as: T.self)
+        let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
         
         return decodedData
     }
@@ -207,28 +209,28 @@ extension RouterService {
     ///   - type: The type into which the success response data should be decoded.
     ///   - errorType: The type into which the error response data should be decoded.
     ///   - request: The URLRequest for the upload request.
+    ///
     /// - Returns: The decoded response data of the specified type.
+    ///
     /// - Throws: An error if there is any issue during the network upload request, data validation, or decoding.
     private func sendUpload<T: Decodable, E: Decodable>(data: Data, _ type: T.Type, errorType: E.Type, request: URLRequest) async throws -> T {
         let (data, response) = try await session.upload(for: request, from: data)
         
         // Log network details.
-        if NFSettings.current.showsDebugOnConsole {
+        if NFSettings.shared.isDebugModeEnabled {
             NFLog.log(request: request, response: response, data: data)
         }
-                
+        
         do {
             // Validate response.
-            let checkedData = try validateData(data, withResponse: response)
+            let checkedData = try validateResponseData(data, response: response, errorType: errorType)
             
             // Decode response.
-            let decodedData = try decodeData(checkedData, as: T.self)
+            let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
             
             return decodedData
         } catch {
-            // If decoding into the specified type fails, attempt to decode into the error type.
-            let errorData = try decodeData(data, as: E.self)
-            throw NFError.clientError(model: errorData)
+            throw proceseThrowableClientError(data: data, errorType: type)
         }
     }
 }
@@ -237,8 +239,11 @@ extension RouterService {
 
 extension RouterService {
     /// Fetches the data for the given request asynchronously.
+    ///
     /// - Parameter request: The request to fetch data for.
+    ///
     /// - Returns: A tuple containing the fetched data and the URL response.
+    ///
     /// - Throws: An error if the data retrieval fails.
     private func fetchData(for request: URLRequest) async throws -> (Data, URLResponse) {
         do {
@@ -249,43 +254,107 @@ extension RouterService {
     }
     
     /// Validates the received data and response.
+    ///
     /// - Parameters:
     ///   - data: The data to validate.
     ///   - response: The response to validate.
+    ///   - errorType: The type into which the error response data should be decoded.
+    ///
     /// - Returns: The validated data.
+    ///
     /// - Throws: An error if the validation fails.
-    private func validateData(_ data: Data, withResponse response: URLResponse) throws -> Data {
+    private func validateResponseData<E: Decodable>(_ data: Data, response: URLResponse, errorType: E.Type) throws -> Data {
         guard let httpResponse = response as? HTTPURLResponse else {
             throw NFError.failure(description: "Couldn't cast URLResponse to HTTPURLResponse.")
         }
         
-        try validateStatusCode(httpResponse.statusCode)
+        try validateStatusCode(httpResponse.statusCode, with: data, errorType: errorType)
+        
+        return data
+    }
+    
+    /// Validates the received data and response.
+    ///
+    /// - Parameters:
+    ///   - data: The data to validate.
+    ///   - response: The response to validate.
+    ///
+    /// - Returns: The validated data.
+    ///
+    /// - Throws: An error if the validation fails.
+    private func validateResponseData(_ data: Data, response: URLResponse) throws -> Data {
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw NFError.failure(description: "Couldn't cast URLResponse to HTTPURLResponse.")
+        }
+        
+        try validateStatusCode(httpResponse.statusCode, with: data)
         
         return data
     }
     
     /// Validates the provided status code.
-    /// - Parameter statusCode: The status code to validate.
+    ///
+    /// - Parameters:
+    ///   - statusCode: The status code to validate.
+    ///   - data: The data to validate.
+    ///   - errorType: The type into which the error response data should be decoded.
+    ///
     /// - Throws: An error if the status code is not within the expected range.
-    private func validateStatusCode(_ statusCode: Int) throws {
-        guard (200..<300).contains(statusCode) else {
-            throw NFError.badStatusCode(code: statusCode, description: "Please check your request.")
+    private func validateStatusCode<E: Decodable>(_ statusCode: Int, with data: Data, errorType: E.Type) throws {
+        switch statusCode {
+        case 200..<300:
+            return
+        case 400..<500:
+            throw proceseThrowableClientError(data: data, errorType: errorType)
+        case 500..<600:
+            throw NFError.serverError
+        default:
+            throw NFError.unexpectedStatusCode(statusCode: statusCode)
         }
     }
     
-    /// Decodes the provided data into the specified type.
+    /// Validates the provided status code.
+    ///
     /// - Parameters:
-    ///   - data: The data to decode.
-    ///   - type: The type to decode the data into.
-    /// - Returns: A value of the specified type, representing the decoded data.
-    /// - Throws: An error if the decoding fails.
-    private func decodeData<T: Decodable>(_ data: Data, as type: T.Type) throws -> T {
-        let decoder = JSONDecoder()
-        
+    ///   - statusCode: The status code to validate.
+    ///   - data: The data to validate.
+    ///   - errorType: The type into which the error response data should be decoded.
+    ///
+    /// - Throws: An error if the status code is not within the expected range.
+    private func validateStatusCode(_ statusCode: Int, with data: Data) throws {
+        switch statusCode {
+        case 200..<300:
+            return
+        case 400..<500:
+            throw NFError.clientErrorData(data: data)
+        case 500..<600:
+            throw NFError.serverError
+        default:
+            throw NFError.unexpectedStatusCode(statusCode: statusCode)
+        }
+    }
+    
+    /// Processes errors that occur during response handling.
+    ///
+    /// - Parameters:
+    ///   - data: Data received from the server.
+    ///   - errorType: The type of error model to decode.
+    ///
+    /// - Returns: An appropriate error based on the provided data and error model type.
+    private func proceseThrowableClientError<E: Decodable>(data: Data, errorType: E.Type?) -> Error {
         do {
-            return try decoder.decode(T.self, from: data)
+            if let errorType {
+                // Try decoding the error data into the specified error model type.
+                let errorData = try NFJSONDecoder().decodeData(data, as: errorType)
+                // If successful, return a client error with the decoded error model.
+                return NFError.clientErrorModel(model: errorData)
+            } else {
+                // If decoding fails, return a client error with the original data.
+                return NFError.clientErrorData(data: data)
+            }
         } catch {
-            throw NFError.decodingError(description: "Failed to decode data: \(error)")
+            // If decoding fails, return a client error with the original data.
+            return NFError.clientErrorData(data: data)
         }
     }
 }
