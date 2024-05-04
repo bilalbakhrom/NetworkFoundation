@@ -59,7 +59,7 @@ extension RouterProtocol {
             headers: headers,
             method: method,
             parameters: bodyParameters,
-            settings: NFSettings.current
+            settings: NFSettings.shared
         )
         
         return urlRequest
@@ -94,7 +94,7 @@ extension RouterProtocol {
         if let parameters = parameters {
             try encodeParameters(
                 parameters,
-                with: settings.httpBodyEncoderType,
+                with: settings.encodingConfiguration.httpBodyEncoder,
                 for: &urlRequest,
                 settings: settings
             )
@@ -122,8 +122,8 @@ extension RouterProtocol {
             // Use URLEncoder to encode parameters in the HTTP body
             let encoder = URLEncoder(
                 destination: .httpBody,
-                arrayEncoding: settings.arrayEncoding,
-                boolEncoding: settings.boolEncoding
+                arrayEncoding: settings.encodingConfiguration.arrayEncoding,
+                boolEncoding: settings.encodingConfiguration.booleanEncoding
             )
             urlRequest = try encoder.encode(urlRequest, with: parameters)
             
