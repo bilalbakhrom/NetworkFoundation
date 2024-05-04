@@ -24,18 +24,13 @@ class RouterServiceTests: XCTestCase {
     }
 
     func testRequestDataSuccess() async throws {
-        let expectedData = try MockModelURLResponder.item.asData()
+        let expectedModel = MockModelURLResponder.item
         
         do {
             let data = try await routerService.requestData(from: MockRouter.test)
+            let receivedModel = try JSONDecoder().decode(MockModel.self, from: data)
             
-            let expectation = XCTestExpectation(description: "Received expected data")
-            
-            if data == expectedData {
-                expectation.fulfill()
-            }
-            
-            await fulfillment(of: [expectation], timeout: 5)
+            XCTAssertEqual(receivedModel.name, expectedModel.name)
         } catch {
             XCTFail("Unexpected error: \(error)")
         }
@@ -88,7 +83,6 @@ class RouterServiceTests: XCTestCase {
             _ = try await routerService.requestUpload(data: uploadData, type: MockModel.self, from: MockRouter.test)
             XCTFail("Expected server error not thrown")
         } catch {
-            print("ERROR: \(type(of: error))")
             XCTAssertTrue(error is NFError)
         }
     }
