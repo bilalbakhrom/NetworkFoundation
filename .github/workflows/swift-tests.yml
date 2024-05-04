@@ -1,0 +1,40 @@
+#name of config
+name: NetworkFoundation Tests
+
+#when to trigger the jobs
+on:
+  push:
+    branches: [ 'main' ]
+  pull_request:
+    branches: [ 'main' ]
+     
+jobs:
+  SPM:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.runsOn }}
+    env:
+      DEVELOPER_DIR: "/Applications/${{ matrix.xcode }}.app/Contents/Developer"
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - xcode: "Xcode_15.2"
+            runsOn: macos-latest
+            name: "macOS latest, SPM 5.9.2 Test"
+            outputFilter: xcbeautify --renderer github-actions
+          - xcode: "Xcode_15.1"
+            runsOn: macos-14
+            name: "macOS 14, SPM 5.9.1 Test"
+            outputFilter: xcbeautify --renderer github-actions
+          - xcode: "Xcode_15.0.1"
+            runsOn: macos-14
+            name: "macOS 14, SPM 5.9.0 Test"
+            outputFilter: xcbeautify --renderer github-actions
+    steps:
+      - uses: actions/checkout@v4
+      - name: Test SPM
+        run: swift test -c debug 2>&1 | ${{ matrix.outputFilter }}
+
+      
+      
