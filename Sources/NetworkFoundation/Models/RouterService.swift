@@ -182,20 +182,24 @@ extension RouterService {
     ///
     /// - Throws: An error if there is any issue during the network upload request, data validation, or decoding.
     private func sendUpload<T: Decodable>(data: Data, type: T.Type, request: URLRequest) async throws -> T {
-        let (data, response) = try await session.upload(for: request, from: data)
-        
-        // Log network details.
-        if NFSettings.shared.isDebugModeEnabled {
-            NFLog.log(request: request, response: response, data: data)
+        do {
+            let (data, response) = try await session.upload(for: request, from: data)
+            
+            // Log network details.
+            if NFSettings.shared.isDebugModeEnabled {
+                NFLog.log(request: request, response: response, data: data)
+            }
+            
+            // Validate response.
+            let checkedData = try validateResponseData(data, response: response)
+            
+            // Decode response.
+            let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
+            
+            return decodedData
+        } catch {
+            throw maskWithLocalError(error)
         }
-        
-        // Validate response.
-        let checkedData = try validateResponseData(data, response: response)
-        
-        // Decode response.
-        let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
-        
-        return decodedData
     }
     
     /// Sends an asynchronous upload request and handles both success and error response data decoding.
@@ -214,23 +218,27 @@ extension RouterService {
     ///
     /// - Throws: An error if there is any issue during the network upload request, data validation, or decoding.
     private func sendUpload<T: Decodable, E: Decodable>(data: Data, _ type: T.Type, errorType: E.Type, request: URLRequest) async throws -> T {
-        let (data, response) = try await session.upload(for: request, from: data)
-        
-        // Log network details.
-        if NFSettings.shared.isDebugModeEnabled {
-            NFLog.log(request: request, response: response, data: data)
-        }
-        
         do {
-            // Validate response.
-            let checkedData = try validateResponseData(data, response: response, errorType: errorType)
+            let (data, response) = try await session.upload(for: request, from: data)
             
-            // Decode response.
-            let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
+            // Log network details.
+            if NFSettings.shared.isDebugModeEnabled {
+                NFLog.log(request: request, response: response, data: data)
+            }
             
-            return decodedData
+            do {
+                // Validate response.
+                let checkedData = try validateResponseData(data, response: response, errorType: errorType)
+                
+                // Decode response.
+                let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
+                
+                return decodedData
+            } catch {
+                throw proceseThrowableClientError(data: data, errorType: type)
+            }
         } catch {
-            throw proceseThrowableClientError(data: data, errorType: type)
+            throw maskWithLocalError(error)
         }
     }
 }
@@ -355,6 +363,14 @@ extension RouterService {
         } catch {
             // If decoding fails, return a client error with the original data.
             return NFError.clientErrorData(data: data)
+        }
+    }
+    
+    private func maskWithLocalError(_ error: Error) -> NFError {
+        if let error = error as? NFError {
+            return error
+        } else {
+            return NFError.networkError(description: "Failed to upload data: \(error)")
         }
     }
 }
