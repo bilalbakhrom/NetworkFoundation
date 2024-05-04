@@ -1,5 +1,5 @@
 #name of config
-name: NetworkFoundation Tests
+name: SPM Tests
 
 #when to trigger the jobs
 on:
