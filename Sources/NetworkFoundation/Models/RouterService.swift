@@ -110,17 +110,13 @@ open class RouterService<R: RouterProtocol>: ServiceProtocol {
             NFLog.log(request: request, response: response, data: data)
         }
         
-        do {
-            // Validate response.
-            let checkedData = try validateResponseData(data, response: response, errorType: errorType)
-            
-            // Decode response.
-            let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
-            
-            return decodedData
-        } catch {
-            throw proceseThrowableClientError(data: data, errorType: type)
-        }
+        // Validate response.
+        let checkedData = try validateResponseData(data, response: response, errorType: errorType)
+        
+        // Decode response.
+        let decodedData = try NFJSONDecoder().decodeData(checkedData, as: type)
+        
+        return decodedData
     }
 }
 
